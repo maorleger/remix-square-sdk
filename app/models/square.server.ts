@@ -8,7 +8,7 @@ const isProduction = process.env.NODE_ENV === "production";
 console.log("accessToken", accessToken, "isProduction", isProduction);
 
 const client = new Client({
-  environment: isProduction ? Environment.Production : Environment.Sandbox,
+  environment: Environment.Sandbox,
   accessToken: accessToken,
 });
 
