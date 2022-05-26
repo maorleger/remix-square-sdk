@@ -119,7 +119,7 @@ export default function PaymentPage() {
       <main className="flex h-full flex-col items-center  bg-white">
         <div id="card-container"></div>
         {card && button(fetcher.state !== "idle")}
-        {applePay && button(fetcher.state !== "idle")}
+        {applePay && button(fetcher.state !== "idle", "Pay with apple")}
         {fetcher.state === "idle" && fetcher.data?.success === true && (
           <p className="text-green-600">SUCCESS!</p>
         )}

@@ -3,7 +3,7 @@ import { json } from "@remix-run/server-runtime";
 import { nanoid } from "nanoid";
 import type { CreatePaymentRequest } from "square";
 import { ApiError } from "square";
-import { client } from "~/models/square.server";
+import { client } from "~/square.server";
 import retry from "async-retry";
 
 export const payAction: ActionFunction = async function ({ params, request }) {
