@@ -1,5 +1,5 @@
 import type { LoaderFunction } from "@remix-run/node";
-import { Form, Link, Outlet, useLoaderData } from "@remix-run/react";
+import { Form, Link, Outlet } from "@remix-run/react";
 
 import { requireUserId } from "~/session.server";
 import { useUser } from "~/utils";
@@ -7,14 +7,11 @@ import { useUser } from "~/utils";
 type LoaderData = {};
 
 export const loader: LoaderFunction = async ({ request }) => {
-  const userId = await requireUserId(request);
+  await requireUserId(request);
   return null;
-  // const noteListItems = await getNoteListItems({ userId });
-  // return json<LoaderData>({ noteListItems });
 };
 
 export default function ShopPage() {
-  const data = useLoaderData() as LoaderData;
   const user = useUser();
 
   return (

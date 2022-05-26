@@ -2,7 +2,16 @@ import type { ActionFunction, LoaderFunction } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { useFetcher, useLoaderData } from "@remix-run/react";
 import { useEffect, useState } from "react";
-import type { ApplePay, Card } from "@square/web-payments-sdk-types";
+import {
+  ACH,
+  AchOptions,
+  AchTokenOptions,
+  ApplePay,
+  Card,
+  LineItem,
+  Payments,
+  ShippingContact,
+} from "@square/web-payments-sdk-types";
 
 import { requireUserId } from "~/session.server";
 import { payAction } from "./payment.server";
@@ -12,7 +21,7 @@ type LoaderData = {
   locationId: string;
 };
 
-type TokenizedPaymentMethod = ApplePay | Card;
+type TokenizedPaymentMethod = ApplePay | Card | ACH;
 
 export const loader: LoaderFunction = async ({ request }) => {
   await requireUserId(request);
@@ -34,9 +43,138 @@ export default function PaymentPage() {
 
   const [card, setCard] = useState<Card | undefined>(undefined);
   const [applePay, setApplePay] = useState<ApplePay | undefined>(undefined);
+  const [ach, setAch] = useState<ACH | undefined>(undefined);
 
-  async function tokenize(paymentMethod: TokenizedPaymentMethod) {
-    const tokenResult = await paymentMethod.tokenize();
+  function buildPaymentRequest(payments: Payments) {
+    const defaultShippingOptions = [
+      {
+        amount: "0.00",
+        id: "shipping-option-1",
+        label: "Free",
+      },
+      {
+        amount: "10.00",
+        id: "shipping-option-2",
+        label: "Expedited",
+      },
+    ];
+
+    let lineItems = [
+      { amount: "2.00", label: "Item Cost" },
+      { amount: "0.00", label: "Shipping" },
+      { amount: "0.00", label: "Tax" },
+    ];
+
+    let total = calculateTotal(lineItems);
+
+    const paymentRequestDetails: Parameters<typeof payments.paymentRequest>[0] =
+      {
+        countryCode: "US",
+        currencyCode: "USD",
+        lineItems,
+        requestBillingContact: true,
+        requestShippingContact: true,
+        shippingOptions: defaultShippingOptions,
+        total,
+      };
+    const req = payments.paymentRequest(paymentRequestDetails);
+
+    req.addEventListener("shippingoptionchanged", (option: any) => {
+      const newLineItems = setLineItems(lineItems, { shipping: option.amount });
+      const total = calculateTotal(newLineItems);
+      lineItems = newLineItems;
+
+      return {
+        lineItems,
+        total,
+      };
+    });
+
+    req.addEventListener(
+      "shippingcontactchanged",
+      (contact: ShippingContact) => {
+        // Add your business logic here.
+        // This tells you the address of the buyer, and allows you to update your shipping options
+        // and pricing based on their location.
+        const isCA = contact.state === "CA";
+
+        const newShippingOptions = isCA
+          ? defaultShippingOptions
+          : [
+              {
+                id: "shipping-options-3",
+                label: "Standard Shipping",
+                amount: "15.00",
+              },
+              {
+                id: "shipping-options-4",
+                label: "Express Shipping",
+                amount: "25.00",
+              },
+            ];
+
+        const taxableItem = lineItems.find((lineItem) => {
+          return lineItem.label === "Item Cost";
+        });
+
+        function calculateTax(...args: any[]) {
+          return "5.00";
+        }
+        const tax = calculateTax(taxableItem?.amount, contact?.state);
+        // Whenever the shipping contact is changed, the shipping option defaults to the
+        // first option. This will lead to the shippingoptionchanged event being emitted for
+        // each contact change when if shipping address is required.
+        const newLineItems = setLineItems(lineItems, { Tax: tax });
+
+        total = calculateTotal(newLineItems);
+        lineItems = newLineItems;
+
+        return {
+          lineItems: newLineItems,
+          shippingOptions: newShippingOptions,
+          total,
+        };
+      }
+    );
+
+    return req;
+  }
+
+  function setLineItems(
+    currentLineItems: LineItem[],
+    newAmountsByLabel: Record<string, string>
+  ) {
+    // A list  of which newAmounts labels exist in the current line items.
+    const updatedLineItem = new Set();
+
+    // set the new amount for the line items that need to be updated.
+    const newLineItems: LineItem[] = currentLineItems.map((lineItem) => {
+      updatedLineItem.add(lineItem.label);
+      if (newAmountsByLabel[lineItem.label] !== undefined) {
+        return Object.assign({}, lineItem, {
+          amount: newAmountsByLabel[lineItem.label],
+        });
+      }
+      return lineItem;
+    });
+
+    // for line items that were not updated, add them to the new lineItem list.
+    Object.entries(newAmountsByLabel).forEach(([label, amount]) => {
+      if (!updatedLineItem.has(label)) {
+        newLineItems.push({ label, amount, pending: false });
+      }
+    });
+
+    return newLineItems;
+  }
+
+  async function tokenize(
+    paymentMethod: TokenizedPaymentMethod,
+    options: AchTokenOptions = {
+      accountHolderName: "Maor Leger",
+    }
+  ) {
+    const tokenResult = await paymentMethod.tokenize(options);
     if (tokenResult.status === "OK") {
       return tokenResult.token;
     } else {
@@ -86,19 +224,23 @@ export default function PaymentPage() {
         card = await payments.card();
         await card.attach("#card-container");
         setCard(card);
-        const paymentRequest = payments.paymentRequest({
-          countryCode: "US",
-          currencyCode: "USD",
-          total: {
-            amount: "1.00",
-            label: "Total",
-          },
-        });
+      } catch (e: any) {
+        console.log(e);
+      }
+
+      try {
+        const paymentRequest = buildPaymentRequest(payments);
         const applePay = await payments.applePay(paymentRequest);
         setApplePay(applePay);
       } catch (e: any) {
         console.log(e);
-        return;
+      }
+
+      try {
+        const ach = await payments.ach();
+        setAch(ach);
+      } catch (e) {
+        console.log(e);
       }
     }
 
@@ -119,7 +261,7 @@ export default function PaymentPage() {
       </button>
     );
   };
-  console.dir(fetcher);
+
   return (
     <div className="flex h-full min-h-screen flex-col">
       <main className="flex h-full flex-col items-center  bg-white">
@@ -130,7 +272,19 @@ export default function PaymentPage() {
         {fetcher.state === "idle" && fetcher.data?.success === true && (
           <p className="text-green-600">SUCCESS!</p>
         )}
+        {ach && button(fetcher.state !== "idle", ach, "Pay with bank")}
       </main>
     </div>
   );
+}
+function calculateTotal(
+  lineItems: { amount: string; label: string }[]
+): LineItem {
+  const amount = lineItems
+    .reduce((total, lineItem) => {
+      return total + parseFloat(lineItem.amount);
+    }, 0.0)
+    .toFixed(2);
+
+  return { amount, label: "Total" };
 }
