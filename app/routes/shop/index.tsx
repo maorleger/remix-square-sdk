@@ -12,6 +12,8 @@ type LoaderData = {
   locationId: string;
 };
 
+type TokenizedPaymentMethod = ApplePay | Card;
+
 export const loader: LoaderFunction = async ({ request }) => {
   await requireUserId(request);
 
@@ -33,7 +35,7 @@ export default function PaymentPage() {
   const [card, setCard] = useState<Card | undefined>(undefined);
   const [applePay, setApplePay] = useState<ApplePay | undefined>(undefined);
 
-  async function tokenize(paymentMethod: Card) {
+  async function tokenize(paymentMethod: TokenizedPaymentMethod) {
     const tokenResult = await paymentMethod.tokenize();
     if (tokenResult.status === "OK") {
       return tokenResult.token;
@@ -56,13 +58,13 @@ export default function PaymentPage() {
     fetcher.submit(body, { method: "post" });
   }
 
-  async function submitPayment() {
+  async function submitPayment(paymentMethod: TokenizedPaymentMethod) {
     if (!card) {
       throw new Error("no card??");
     }
 
     fetcher.state = "submitting";
-    const token = await tokenize(card);
+    const token = await tokenize(paymentMethod);
     createPayment(data.locationId, token!);
   }
 
@@ -103,12 +105,16 @@ export default function PaymentPage() {
     asyncLoad();
   }, [data.appId, data.locationId]);
 
-  const button = (disabled: boolean, text: string = "Pay a dollar") => {
+  const button = (
+    disabled: boolean,
+    paymentMethod: TokenizedPaymentMethod,
+    text: string = "Pay a dollar"
+  ) => {
     const btnClass = disabled
       ? "bg-blue-500 text-white font-bold py-2 px-4 rounded opacity-50 cursor-not-allowed"
       : "rounded bg-blue-500 py-2 px-4 font-bold text-white hover:bg-blue-700";
     return (
-      <button className={btnClass} onClick={submitPayment}>
+      <button className={btnClass} onClick={() => submitPayment(paymentMethod)}>
         {text}
       </button>
     );
@@ -118,8 +124,9 @@ export default function PaymentPage() {
     <div className="flex h-full min-h-screen flex-col">
       <main className="flex h-full flex-col items-center  bg-white">
         <div id="card-container"></div>
-        {card && button(fetcher.state !== "idle")}
-        {applePay && button(fetcher.state !== "idle", "Pay with apple")}
+        {card && button(fetcher.state !== "idle", card, "Pay with card")}
+        {applePay &&
+          button(fetcher.state !== "idle", applePay, "Pay with apple")}
         {fetcher.state === "idle" && fetcher.data?.success === true && (
           <p className="text-green-600">SUCCESS!</p>
         )}
