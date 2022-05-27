@@ -7,6 +7,7 @@ import type {
   AchTokenOptions,
   ApplePay,
   Card,
+  Payments,
 } from "@square/web-payments-sdk-types";
 
 import { action as serverPayAction } from "./payment.server";
@@ -65,37 +66,36 @@ export default function PaymentPage() {
   }
 
   useEffect(() => {
+    const initializers = {
+      card: async (payments: Payments) => {
+        let card;
+        card = await payments.card();
+        await card.attach("#card-container");
+        setCard(card);
+      },
+      applePay: async (payments: Payments) => {
+        const paymentRequest = buildPaymentRequest(payments);
+        const applePay = await payments.applePay(paymentRequest);
+        setApplePay(applePay);
+      },
+      ach: async (payments: Payments) => {
+        const ach = await payments.ach();
+        setAch(ach);
+      },
+    };
+
     async function asyncLoad() {
       if (!window.Square) {
         throw new Error("Square failed to load...");
       }
 
-      let payments;
-      payments = window.Square.payments(data.appId, data.locationId);
-
-      let card;
-      try {
-        card = await payments.card();
-        await card.attach("#card-container");
-        setCard(card);
-      } catch (e: any) {
-        console.log(e);
-      }
-
-      try {
-        const paymentRequest = buildPaymentRequest(payments);
-        const applePay = await payments.applePay(paymentRequest);
-        setApplePay(applePay);
-      } catch (e: any) {
-        console.log(e);
-      }
-
-      try {
-        const ach = await payments.ach();
-        setAch(ach);
-      } catch (e) {
-        console.log(e);
-      }
+      const payments = window.Square.payments(data.appId, data.locationId);
+      const initPromises = Object.values(initializers).map((p) =>
+        p(payments).catch((err) => {
+          console.error(err);
+        })
+      );
+      await Promise.all(initPromises);
     }
 
     asyncLoad();
@@ -126,7 +126,7 @@ export default function PaymentPage() {
         placeholder="Jane Doe"
         aria-label="Full name"
       ></input>
-      {button(fetcher.state !== "idle", paymentMethod, "Pay with ACH")}
+      {button(!name || disabled, paymentMethod, "Pay with ACH")}
     </div>
   );
 
