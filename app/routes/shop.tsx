@@ -4,8 +4,6 @@ import { Form, Link, Outlet } from "@remix-run/react";
 import { requireUserId } from "~/session.server";
 import { useUser } from "~/utils";
 
-type LoaderData = {};
-
 export const loader: LoaderFunction = async ({ request }) => {
   await requireUserId(request);
   return null;

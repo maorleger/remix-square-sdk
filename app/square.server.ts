@@ -1,11 +1,7 @@
 import { ApiError, Client, Environment } from "square";
+import config from "./config.server";
 
-const accessToken = process.env.SQUARE_ACCESS_TOKEN;
-if (!accessToken) {
-  throw new Error("missing access token");
-}
-const isProduction = process.env.NODE_ENV === "production";
-console.log("accessToken", accessToken, "isProduction", isProduction);
+const accessToken = config.squareAccessToken;
 
 const client = new Client({
   environment: Environment.Sandbox,
