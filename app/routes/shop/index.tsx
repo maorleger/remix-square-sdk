@@ -1,7 +1,7 @@
 import type { ActionFunction, LoaderFunction } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { useFetcher, useLoaderData } from "@remix-run/react";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import type {
   ACH,
   AchTokenOptions,
@@ -37,6 +37,11 @@ export default function PaymentPage() {
   const [card, setCard] = useState<Card | undefined>(undefined);
   const [applePay, setApplePay] = useState<ApplePay | undefined>(undefined);
   const [ach, setAch] = useState<ACH | undefined>(undefined);
+  const [name, setName] = useState<string | undefined>();
+
+  function onNameChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setName(e.target.value);
+  }
 
   function createPayment(locationId: string, token: string) {
     const body = {
@@ -47,11 +52,13 @@ export default function PaymentPage() {
     fetcher.submit(body, { method: "post" });
   }
 
-  async function submitPayment(
-    paymentMethod: TokenizedPaymentMethod,
-    options?: AchTokenOptions
-  ) {
+  async function submitPayment(paymentMethod: TokenizedPaymentMethod) {
     fetcher.state = "submitting";
+
+    // Skipping validation here as its just a playground
+    const options: AchTokenOptions = {
+      accountHolderName: name || "",
+    };
 
     const token = await tokenize(paymentMethod, options);
     return createPayment(data.locationId, token!);
@@ -109,17 +116,33 @@ export default function PaymentPage() {
     );
   };
 
+  const achForm = (disabled: boolean, paymentMethod: ACH) => (
+    <div className="flex items-center border-b border-teal-500 py-2">
+      <input
+        className="mr-3 w-full appearance-none border-none bg-transparent py-1 px-2 leading-tight text-gray-700 focus:outline-none"
+        type="text"
+        value={name}
+        onChange={onNameChange}
+        placeholder="Jane Doe"
+        aria-label="Full name"
+      ></input>
+      {button(fetcher.state !== "idle", paymentMethod, "Pay with ACH")}
+    </div>
+  );
+
   return (
     <div className="flex h-full min-h-screen flex-col">
       <main className="flex h-full flex-col items-center  bg-white">
         <div id="card-container"></div>
-        {card && button(fetcher.state !== "idle", card, "Pay with card")}
-        {applePay &&
-          button(fetcher.state !== "idle", applePay, "Pay with apple")}
-        {fetcher.state === "idle" && fetcher.data?.success === true && (
-          <p className="text-green-600">SUCCESS!</p>
-        )}
-        {ach && button(fetcher.state !== "idle", ach, "Pay with bank")}
+        <div className="flex-col">
+          {card && button(fetcher.state !== "idle", card, "Pay with card")}
+          {applePay &&
+            button(fetcher.state !== "idle", applePay, "Pay with apple")}
+          {fetcher.state === "idle" && fetcher.data?.success === true && (
+            <p className="text-green-600">SUCCESS!</p>
+          )}
+          {ach && achForm(fetcher.state !== "idle", ach)}
+        </div>
       </main>
     </div>
   );
