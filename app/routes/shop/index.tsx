@@ -121,7 +121,7 @@ export default function PaymentPage() {
   };
 
   const container = (title: string, children: any) => (
-    <div className="m-5 flex ">
+    <div className="m-5">
       <div className="block max-w-sm rounded-lg bg-white p-6 shadow-lg">
         <h5 className="mb-2 text-xl font-medium leading-tight text-gray-900">
           {title}
@@ -181,12 +181,10 @@ export default function PaymentPage() {
   };
 
   return (
-    <div>
-      <div className="flex">
-        {cardComponent(card)}
-        {ach && achComponent(ach)}
-        {applePay && applePayComponent(applePay)}
-      </div>
+    <div className="flex flex-col items-center">
+      {cardComponent(card)}
+      {ach && achComponent(ach)}
+      {applePay && applePayComponent(applePay)}
       {resultComponent()}
     </div>
   );
