@@ -120,34 +120,74 @@ export default function PaymentPage() {
     );
   };
 
-  const achForm = (disabled: boolean, paymentMethod: ACH) => (
-    <div className="flex items-center border-b border-teal-500 py-2">
-      <input
-        className="mr-3 w-full appearance-none border-none bg-transparent py-1 px-2 leading-tight text-gray-700 focus:outline-none"
-        type="text"
-        value={name}
-        onChange={onNameChange}
-        placeholder="Full name"
-        aria-label="Full name"
-      ></input>
-      {button(!name || disabled, paymentMethod, "Pay with ACH")}
+  const container = (title: string, children: any) => (
+    <div className="m-5 flex ">
+      <div className="block max-w-sm rounded-lg bg-white p-6 shadow-lg">
+        <h5 className="mb-2 text-xl font-medium leading-tight text-gray-900">
+          {title}
+        </h5>
+        {children}
+      </div>
     </div>
   );
 
-  return (
-    <div className="flex h-full min-h-screen flex-col">
-      <main className="flex h-full flex-col items-center  bg-white">
+  const cardComponent = (card?: Card) => {
+    const body = (
+      <div>
         <div id="card-container"></div>
-        <div className="flex-col">
-          {card && button(fetcher.state !== "idle", card, "Pay with card")}
-          {applePay &&
-            button(fetcher.state !== "idle", applePay, "Pay with apple")}
-          {fetcher.state === "idle" && fetcher.data?.success === true && (
-            <p className="text-green-600">SUCCESS!</p>
-          )}
-          {ach && achForm(fetcher.state !== "idle", ach)}
-        </div>
-      </main>
+        {card && button(fetcher.state !== "idle", card, "Pay with card")}
+      </div>
+    );
+
+    return container("Pay with card", body);
+  };
+
+  const applePayComponent = (applePay: ApplePay) => {
+    const body = (
+      <div className="flex-col">
+        {button(fetcher.state !== "idle", applePay, "Pay with apple")}
+      </div>
+    );
+
+    return container("Pay with Apple", body);
+  };
+
+  const achComponent = (ach: ACH) => {
+    const disabled = fetcher.state !== "idle" || name.length === 0;
+    const body = (
+      <div className="flex items-center border-b border-teal-500 py-2">
+        <input
+          className="mr-3 w-full appearance-none border-none bg-transparent py-1 px-2 leading-tight text-gray-700 focus:outline-none"
+          type="text"
+          value={name}
+          onChange={onNameChange}
+          placeholder="Full name"
+          aria-label="Full name"
+        ></input>
+        {button(disabled, ach, "Pay with ACH")}
+      </div>
+    );
+
+    return container("Pay with ACH", body);
+  };
+
+  const resultComponent = () => {
+    return (
+      fetcher.state === "idle" &&
+      fetcher.data?.success === true && (
+        <p className="text-green-600">SUCCESS!</p>
+      )
+    );
+  };
+
+  return (
+    <div>
+      <div className="flex">
+        {cardComponent(card)}
+        {ach && achComponent(ach)}
+        {applePay && applePayComponent(applePay)}
+      </div>
+      {resultComponent()}
     </div>
   );
 }
