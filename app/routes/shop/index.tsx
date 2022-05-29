@@ -38,7 +38,7 @@ export default function PaymentPage() {
   const [card, setCard] = useState<Card | undefined>(undefined);
   const [applePay, setApplePay] = useState<ApplePay | undefined>(undefined);
   const [ach, setAch] = useState<ACH | undefined>(undefined);
-  const [name, setName] = useState<string | undefined>();
+  const [name, setName] = useState("");
 
   function onNameChange(e: React.ChangeEvent<HTMLInputElement>) {
     setName(e.target.value);
@@ -123,7 +123,7 @@ export default function PaymentPage() {
         type="text"
         value={name}
         onChange={onNameChange}
-        placeholder="Jane Doe"
+        placeholder="Full name"
         aria-label="Full name"
       ></input>
       {button(!name || disabled, paymentMethod, "Pay with ACH")}
