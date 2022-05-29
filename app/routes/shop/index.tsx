@@ -110,7 +110,11 @@ export default function PaymentPage() {
       ? "bg-blue-500 text-white font-bold py-2 px-4 rounded opacity-50 cursor-not-allowed"
       : "rounded bg-blue-500 py-2 px-4 font-bold text-white hover:bg-blue-700";
     return (
-      <button className={btnClass} onClick={() => submitPayment(paymentMethod)}>
+      <button
+        disabled={disabled}
+        className={btnClass}
+        onClick={() => submitPayment(paymentMethod)}
+      >
         {text}
       </button>
     );
