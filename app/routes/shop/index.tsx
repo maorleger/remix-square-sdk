@@ -7,6 +7,7 @@ import type {
   AchTokenOptions,
   ApplePay,
   Card,
+  ChargeVerifyBuyerDetails,
   Payments,
 } from "@square/web-payments-sdk-types";
 
@@ -39,21 +40,35 @@ export default function PaymentPage() {
   const [applePay, setApplePay] = useState<ApplePay | undefined>(undefined);
   const [ach, setAch] = useState<ACH | undefined>(undefined);
   const [name, setName] = useState("");
+  const [payments, setPayments] = useState<Payments | undefined>(undefined);
 
   function onNameChange(e: React.ChangeEvent<HTMLInputElement>) {
     setName(e.target.value);
   }
 
-  function createPayment(locationId: string, token: string) {
+  function createPayment(
+    locationId: string,
+    token: string,
+    verificationToken?: string
+  ) {
     const body = {
       locationId,
       sourceId: token,
     };
 
+    if (verificationToken) {
+      Object.assign(body, { verificationToken });
+    }
+
+    console.log(body);
+
     fetcher.submit(body, { method: "post" });
   }
 
-  async function submitPayment(paymentMethod: TokenizedPaymentMethod) {
+  async function submitPayment(
+    paymentMethod: TokenizedPaymentMethod,
+    shouldVerify: boolean = false
+  ) {
     fetcher.state = "submitting";
 
     // Skipping validation here as its just a playground
@@ -62,7 +77,14 @@ export default function PaymentPage() {
     };
 
     const token = await tokenize(paymentMethod, options);
-    return createPayment(data.locationId, token!);
+    if (!token) {
+      throw new Error("missing token from result");
+    }
+    let verificationToken;
+    if (shouldVerify) {
+      verificationToken = await verifyBuyer(payments!, token);
+    }
+    return createPayment(data.locationId, token!, verificationToken);
   }
 
   useEffect(() => {
@@ -90,6 +112,7 @@ export default function PaymentPage() {
       }
 
       const payments = window.Square.payments(data.appId, data.locationId);
+      setPayments(payments);
       const initPromises = Object.values(initializers).map((p) =>
         p(payments).catch((err) => {
           console.error(err);
@@ -100,6 +123,38 @@ export default function PaymentPage() {
 
     asyncLoad();
   }, [data.appId, data.locationId]);
+
+  async function verifyBuyer(
+    payments: Payments,
+    token: string
+  ): Promise<string> {
+    const verificationDetails: ChargeVerifyBuyerDetails = {
+      amount: "1.00",
+      /* collected from the buyer */
+      billingContact: {
+        addressLines: ["199 Main street"],
+        familyName: "L",
+        givenName: "Maor",
+        email: "ml@example.com",
+        countryCode: "US",
+        phone: "3214563987",
+        // region: "LND",
+        city: "Kirkland",
+      },
+      currencyCode: "USD",
+      intent: "CHARGE",
+    };
+
+    const verificationResults = await payments.verifyBuyer(
+      token,
+      verificationDetails
+    );
+
+    if (!verificationResults?.token) {
+      throw new Error("3ds verification unsuccessful");
+    }
+    return verificationResults.token;
+  }
 
   const button = (
     disabled: boolean,
@@ -113,7 +168,7 @@ export default function PaymentPage() {
       <button
         disabled={disabled}
         className={btnClass}
-        onClick={() => submitPayment(paymentMethod)}
+        onClick={() => submitPayment(paymentMethod, true)}
       >
         {text}
       </button>
